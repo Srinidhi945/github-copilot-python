@@ -66,6 +66,17 @@ def test_difficulty_mapping_uses_expected_target_clues():
     assert sudoku_logic.resolve_clues(difficulty='hard') == 28
 
 
+def test_validate_board_rejects_non_9x9_shape():
+    assert sudoku_logic.validate_board([[1, 2, 3]]) is False
+
+
+def test_is_complete_board_requires_all_cells_filled():
+    board = sudoku_logic.create_empty_board()
+    board[0][0] = 1
+
+    assert sudoku_logic.is_complete_board(board) is False
+
+
 def test_generate_puzzle_respects_difficulty_by_leaving_fewer_clues_for_harder_levels():
     easy_puzzle, _ = sudoku_logic.generate_puzzle(difficulty='easy')
     medium_puzzle, _ = sudoku_logic.generate_puzzle(difficulty='medium')

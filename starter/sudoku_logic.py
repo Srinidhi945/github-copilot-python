@@ -16,6 +16,28 @@ def deep_copy(board):
 def create_empty_board():
     return [[EMPTY for _ in range(SIZE)] for _ in range(SIZE)]
 
+
+def validate_board(board):
+    if not isinstance(board, list) or len(board) != SIZE:
+        return False
+
+    for row in board:
+        if not isinstance(row, list) or len(row) != SIZE:
+            return False
+        for value in row:
+            if isinstance(value, bool) or not isinstance(value, int):
+                return False
+            if value < EMPTY or value > SIZE:
+                return False
+    return True
+
+
+def is_complete_board(board):
+    if not validate_board(board):
+        return False
+    return all(value != EMPTY for row in board for value in row)
+
+
 def is_safe(board, row, col, num):
     # Check row and column
     for x in range(SIZE):
