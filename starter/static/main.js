@@ -361,6 +361,36 @@ function renderPuzzle(data) {
   updateCellClasses();
 }
 
+async function requestJson(url, options = {}) {
+  try {
+    const response = await fetch(url, options);
+    let payload = null;
+    try {
+      payload = await response.text();
+      if (payload) {
+        payload = JSON.parse(payload);
+      }
+    } catch (error) {
+      payload = null;
+    }
+
+    if (!response.ok) {
+      const errorMessage = payload && typeof payload === 'object' && typeof payload.error === 'string' && payload.error.trim()
+        ? payload.error
+        : `Request failed (${response.status} ${response.statusText || 'error'}).`;
+      return { ok: false, error: errorMessage };
+    }
+
+    if (!payload || typeof payload !== 'object') {
+      return { ok: false, error: 'Received an invalid server response.' };
+    }
+
+    return { ok: true, data: payload };
+  } catch (error) {
+    return { ok: false, error: 'Unable to reach the server. Please try again.' };
+  }
+}
+
 function handleBoardInput(event) {
   const target = event.target;
   if (!target.classList.contains('sudoku-cell')) {
@@ -381,29 +411,36 @@ function handleBoardInput(event) {
 
 async function newGame() {
   const difficulty = document.getElementById('difficulty-select').value;
+  const result = await requestJson(`/new?difficulty=${encodeURIComponent(difficulty)}`);
+  const msg = document.getElementById('message');
+  if (!result.ok) {
+    msg.style.color = 'var(--message-color)';
+    msg.innerText = result.error;
+    return;
+  }
+
   currentDifficulty = difficulty;
   resetCompletionState();
-  const res = await fetch(`/new?difficulty=${encodeURIComponent(difficulty)}`);
-  const data = await res.json();
-  renderPuzzle(data);
-  document.getElementById('message').innerText = '';
+  renderPuzzle(result.data);
+  msg.innerText = '';
   startTimer();
 }
 
 async function requestHint() {
   const board = playerBoard.map((row) => row.slice());
-  const res = await fetch('/hint', {
+  const result = await requestJson('/hint', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({board})
   });
-  const data = await res.json();
   const msg = document.getElementById('message');
-  if (data.error) {
+  if (!result.ok) {
     msg.style.color = 'var(--message-color)';
-    msg.innerText = data.error;
+    msg.innerText = result.error;
     return;
   }
+
+  const data = result.data;
   playerBoard[data.row][data.col] = data.value;
   lockedPositions.add(getCellKey(data.row, data.col));
   hintedPositions.add(getCellKey(data.row, data.col));
@@ -421,18 +458,19 @@ async function requestHint() {
 
 async function checkSolution() {
   const board = playerBoard.map((row) => row.slice());
-  const res = await fetch('/check', {
+  const result = await requestJson('/check', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({board})
   });
-  const data = await res.json();
   const msg = document.getElementById('message');
-  if (data.error) {
+  if (!result.ok) {
     msg.style.color = 'var(--message-color)';
-    msg.innerText = data.error;
+    msg.innerText = result.error;
     return;
   }
+
+  const data = result.data;
   const incorrect = new Set(data.incorrect.map(([row, col]) => getCellKey(row, col)));
   const boardDiv = document.getElementById('sudoku-board');
   const inputs = boardDiv.getElementsByTagName('input');
@@ -481,5 +519,6 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     formatElapsedTime,
     insertLeaderboardEntry,
+    requestJson,
   };
 }

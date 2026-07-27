@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { formatElapsedTime, insertLeaderboardEntry } = require('../static/main.js');
+const { formatElapsedTime, insertLeaderboardEntry, requestJson } = require('../static/main.js');
 
 test('formatElapsedTime formats seconds as MM:SS', () => {
   assert.equal(formatElapsedTime(65), '01:05');
@@ -77,4 +77,22 @@ test('insertLeaderboardEntry ignores slower or equal scores when the board is fu
   assert.equal(equal.length, 10);
   assert.deepEqual(slower.map((entry) => entry.name), entries.map((entry) => entry.name));
   assert.deepEqual(equal.map((entry) => entry.name), entries.map((entry) => entry.name));
+});
+
+test('requestJson returns a readable error for failed responses', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async () => ({
+    ok: false,
+    status: 400,
+    statusText: 'Bad Request',
+    text: async () => JSON.stringify({ error: 'Unable to start a new game.' }),
+  });
+
+  try {
+    const result = await requestJson('/new');
+    assert.equal(result.ok, false);
+    assert.equal(result.error, 'Unable to start a new game.');
+  } finally {
+    global.fetch = originalFetch;
+  }
 });
