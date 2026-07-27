@@ -35,3 +35,22 @@ def test_generate_puzzle_returns_puzzle_and_solution():
     assert all(len(row) == sudoku_logic.SIZE for row in puzzle)
     assert all(len(row) == sudoku_logic.SIZE for row in solution)
     assert puzzle != solution
+
+
+def test_solved_board_has_exactly_one_solution():
+    board = sudoku_logic.create_empty_board()
+    sudoku_logic.fill_board(board)
+
+    assert sudoku_logic.count_solutions(board, limit=2) == 1
+
+
+def test_non_unique_board_reaches_solution_limit():
+    board = sudoku_logic.create_empty_board()
+
+    assert sudoku_logic.count_solutions(board, limit=2) == 2
+
+
+def test_generate_puzzle_produces_uniquely_solvable_puzzle():
+    puzzle, _ = sudoku_logic.generate_puzzle(clues=35)
+
+    assert sudoku_logic.count_solutions(puzzle, limit=2) == 1
