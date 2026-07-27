@@ -13,7 +13,7 @@ h1 {
 
 #sudoku-board {
     display: inline-block;
-    margin: 30px auto;
+    margin: 30px auto 20px;
     border: 4px solid #333;
     background: #fff;
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
@@ -89,4 +89,36 @@ button:hover {
     margin-left: 20px;
     font-size: 16px;
     color: #d32f2f;
+}
+
+.status-bar {
+    margin-bottom: 12px;
+    font-weight: bold;
+    color: #333;
+}
+
+.leaderboard {
+    margin: 0 auto 40px;
+    display: inline-block;
+    text-align: left;
+    background: #fff;
+    padding: 16px 24px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.leaderboard h2 {
+    margin-top: 0;
+    font-size: 18px;
+    color: #333;
+}
+
+#leaderboard-list {
+    padding-left: 20px;
+    margin: 0;
+}
+
+#leaderboard-list li {
+    margin-bottom: 6px;
+    color: #333;
 }

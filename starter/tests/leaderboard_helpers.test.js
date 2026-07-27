@@ -1,0 +1,80 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { formatElapsedTime, insertLeaderboardEntry } = require('../static/main.js');
+
+test('formatElapsedTime formats seconds as MM:SS', () => {
+  assert.equal(formatElapsedTime(65), '01:05');
+  assert.equal(formatElapsedTime(7), '00:07');
+});
+
+test('insertLeaderboardEntry adds a new entry when there is room', () => {
+  const entries = [];
+  const result = insertLeaderboardEntry(entries, {
+    name: 'Ada',
+    elapsedTime: 30,
+    difficulty: 'easy',
+    hintsUsed: 0,
+  });
+
+  assert.equal(result.length, 1);
+  assert.equal(result[0].name, 'Ada');
+});
+
+test('insertLeaderboardEntry replaces the slowest entry when a faster score qualifies', () => {
+  const entries = [
+    { name: 'Alice', elapsedTime: 90, difficulty: 'easy', hintsUsed: 0 },
+    { name: 'Bob', elapsedTime: 100, difficulty: 'medium', hintsUsed: 1 },
+    { name: 'Cara', elapsedTime: 110, difficulty: 'hard', hintsUsed: 2 },
+    { name: 'Drew', elapsedTime: 120, difficulty: 'easy', hintsUsed: 0 },
+    { name: 'Eli', elapsedTime: 130, difficulty: 'medium', hintsUsed: 1 },
+    { name: 'Faye', elapsedTime: 140, difficulty: 'hard', hintsUsed: 2 },
+    { name: 'Gus', elapsedTime: 150, difficulty: 'easy', hintsUsed: 0 },
+    { name: 'Hana', elapsedTime: 160, difficulty: 'medium', hintsUsed: 1 },
+    { name: 'Ian', elapsedTime: 170, difficulty: 'hard', hintsUsed: 2 },
+    { name: 'June', elapsedTime: 180, difficulty: 'easy', hintsUsed: 0 },
+  ];
+
+  const result = insertLeaderboardEntry(entries, {
+    name: 'Kai',
+    elapsedTime: 80,
+    difficulty: 'hard',
+    hintsUsed: 1,
+  });
+
+  assert.equal(result.length, 10);
+  assert.equal(result[9].name, 'Ian');
+  assert.equal(result[0].name, 'Kai');
+});
+
+test('insertLeaderboardEntry ignores slower or equal scores when the board is full', () => {
+  const entries = [
+    { name: 'Alice', elapsedTime: 90, difficulty: 'easy', hintsUsed: 0 },
+    { name: 'Bob', elapsedTime: 100, difficulty: 'medium', hintsUsed: 1 },
+    { name: 'Cara', elapsedTime: 110, difficulty: 'hard', hintsUsed: 2 },
+    { name: 'Drew', elapsedTime: 120, difficulty: 'easy', hintsUsed: 0 },
+    { name: 'Eli', elapsedTime: 130, difficulty: 'medium', hintsUsed: 1 },
+    { name: 'Faye', elapsedTime: 140, difficulty: 'hard', hintsUsed: 2 },
+    { name: 'Gus', elapsedTime: 150, difficulty: 'easy', hintsUsed: 0 },
+    { name: 'Hana', elapsedTime: 160, difficulty: 'medium', hintsUsed: 1 },
+    { name: 'Ian', elapsedTime: 170, difficulty: 'hard', hintsUsed: 2 },
+    { name: 'June', elapsedTime: 180, difficulty: 'easy', hintsUsed: 0 },
+  ];
+
+  const slower = insertLeaderboardEntry(entries, {
+    name: 'Kai',
+    elapsedTime: 181,
+    difficulty: 'hard',
+    hintsUsed: 1,
+  });
+  const equal = insertLeaderboardEntry(entries, {
+    name: 'Lia',
+    elapsedTime: 180,
+    difficulty: 'hard',
+    hintsUsed: 1,
+  });
+
+  assert.equal(slower.length, 10);
+  assert.equal(equal.length, 10);
+  assert.deepEqual(slower.map((entry) => entry.name), entries.map((entry) => entry.name));
+  assert.deepEqual(equal.map((entry) => entry.name), entries.map((entry) => entry.name));
+});

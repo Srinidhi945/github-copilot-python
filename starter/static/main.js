@@ -1,14 +1,50 @@
 // Client-side rendering and interaction for the Flask-backed Sudoku
 const SIZE = 9;
+const LEADERBOARD_STORAGE_KEY = 'sudoku-top10';
 let puzzle = [];
 let playerBoard = [];
 let lockedPositions = new Set();
 let initialCluePositions = new Set();
 let hintedPositions = new Set();
 let hintsUsed = 0;
+let elapsedSeconds = 0;
+let timerStartTime = null;
+let timerIntervalId = null;
+let isGameCompleted = false;
+let completionHandled = false;
+let currentDifficulty = 'medium';
+let leaderboard = [];
 
 function getCellKey(row, col) {
   return `${row},${col}`;
+}
+
+function formatElapsedTime(seconds) {
+  const value = Number(seconds) || 0;
+  const minutes = Math.floor(value / 60);
+  const remainingSeconds = value % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+}
+
+function compareLeaderboardEntries(left, right) {
+  if (left.elapsedTime !== right.elapsedTime) {
+    return left.elapsedTime - right.elapsedTime;
+  }
+  return left.name.localeCompare(right.name);
+}
+
+function insertLeaderboardEntry(entries, newEntry) {
+  const normalizedEntries = entries.map((entry) => ({ ...entry }));
+  if (normalizedEntries.length < 10) {
+    return [...normalizedEntries, { ...newEntry }].sort(compareLeaderboardEntries);
+  }
+
+  const sortedEntries = [...normalizedEntries].sort(compareLeaderboardEntries);
+  if (newEntry.elapsedTime >= sortedEntries[sortedEntries.length - 1].elapsedTime) {
+    return sortedEntries;
+  }
+
+  return [...sortedEntries.slice(0, 9), { ...newEntry }].sort(compareLeaderboardEntries);
 }
 
 function createBoardElement() {
@@ -101,6 +137,168 @@ function hasConflict(row, col, value) {
   return false;
 }
 
+function updateTimerDisplay(value) {
+  const timerDisplay = document.getElementById('timer-display');
+  if (!timerDisplay) {
+    return;
+  }
+  timerDisplay.textContent = `Time: ${formatElapsedTime(value)}`;
+}
+
+function startTimer() {
+  stopTimer();
+  elapsedSeconds = 0;
+  timerStartTime = Date.now();
+  updateTimerDisplay(elapsedSeconds);
+  timerIntervalId = window.setInterval(() => {
+    elapsedSeconds = Math.floor((Date.now() - timerStartTime) / 1000);
+    updateTimerDisplay(elapsedSeconds);
+  }, 1000);
+}
+
+function stopTimer() {
+  if (timerIntervalId !== null) {
+    window.clearInterval(timerIntervalId);
+    timerIntervalId = null;
+  }
+}
+
+function resetCompletionState() {
+  isGameCompleted = false;
+  completionHandled = false;
+  stopTimer();
+  elapsedSeconds = 0;
+  updateTimerDisplay(elapsedSeconds);
+}
+
+function getElapsedSeconds() {
+  if (timerStartTime === null) {
+    return elapsedSeconds;
+  }
+  return Math.floor((Date.now() - timerStartTime) / 1000);
+}
+
+function loadLeaderboard() {
+  try {
+    const savedEntries = window.localStorage.getItem(LEADERBOARD_STORAGE_KEY);
+    if (!savedEntries) {
+      leaderboard = [];
+      return leaderboard;
+    }
+
+    const parsedEntries = JSON.parse(savedEntries);
+    if (!Array.isArray(parsedEntries)) {
+      leaderboard = [];
+      return leaderboard;
+    }
+
+    leaderboard = parsedEntries
+      .map((entry) => ({
+        name: entry.name,
+        elapsedTime: Number(entry.elapsedTime) || 0,
+        difficulty: entry.difficulty || 'unknown',
+        hintsUsed: Number(entry.hintsUsed) || 0,
+      }))
+      .sort(compareLeaderboardEntries)
+      .slice(0, 10);
+  } catch (error) {
+    leaderboard = [];
+  }
+
+  renderLeaderboard();
+  return leaderboard;
+}
+
+function saveLeaderboard() {
+  try {
+    window.localStorage.setItem(LEADERBOARD_STORAGE_KEY, JSON.stringify(leaderboard));
+  } catch (error) {
+    // Ignore storage failures and keep the UI responsive.
+  }
+}
+
+function renderLeaderboard() {
+  const leaderboardList = document.getElementById('leaderboard-list');
+  if (!leaderboardList) {
+    return;
+  }
+
+  if (leaderboard.length === 0) {
+    leaderboardList.innerHTML = '<li>No completed games yet.</li>';
+    return;
+  }
+
+  leaderboardList.innerHTML = '';
+  leaderboard.forEach((entry, index) => {
+    const listItem = document.createElement('li');
+    listItem.textContent = `${index + 1}. ${entry.name} — ${formatElapsedTime(entry.elapsedTime)} — ${entry.difficulty} — hints: ${entry.hintsUsed}`;
+    leaderboardList.appendChild(listItem);
+  });
+}
+
+function promptForName() {
+  while (true) {
+    const enteredName = window.prompt('Enter your name for the Top 10 leaderboard:');
+    if (enteredName === null) {
+      return null;
+    }
+
+    const trimmedName = enteredName.trim();
+    if (trimmedName) {
+      return trimmedName;
+    }
+  }
+}
+
+function handleCompletedGame() {
+  if (completionHandled) {
+    return;
+  }
+
+  completionHandled = true;
+  isGameCompleted = true;
+  stopTimer();
+
+  const elapsedTime = getElapsedSeconds();
+  const message = document.getElementById('message');
+  message.style.color = '#388e3c';
+  message.innerText = `Congratulations! You solved it in ${formatElapsedTime(elapsedTime)} with ${hintsUsed} hint${hintsUsed === 1 ? '' : 's'}.`;
+
+  if (leaderboard.length < 10) {
+    const name = promptForName();
+    if (name === null) {
+      return;
+    }
+
+    leaderboard = insertLeaderboardEntry(leaderboard, {
+      name,
+      elapsedTime,
+      difficulty: currentDifficulty,
+      hintsUsed,
+    });
+    saveLeaderboard();
+    renderLeaderboard();
+    return;
+  }
+
+  const slowestEntry = [...leaderboard].sort(compareLeaderboardEntries)[leaderboard.length - 1];
+  if (elapsedTime < slowestEntry.elapsedTime) {
+    const name = promptForName();
+    if (name === null) {
+      return;
+    }
+
+    leaderboard = insertLeaderboardEntry(leaderboard, {
+      name,
+      elapsedTime,
+      difficulty: currentDifficulty,
+      hintsUsed,
+    });
+    saveLeaderboard();
+    renderLeaderboard();
+  }
+}
+
 function renderPuzzle(data) {
   puzzle = data.puzzle.map((row) => row.slice());
   playerBoard = data.puzzle.map((row) => row.slice());
@@ -146,10 +344,13 @@ function handleBoardInput(event) {
 
 async function newGame() {
   const difficulty = document.getElementById('difficulty-select').value;
+  currentDifficulty = difficulty;
+  resetCompletionState();
   const res = await fetch(`/new?difficulty=${encodeURIComponent(difficulty)}`);
   const data = await res.json();
   renderPuzzle(data);
   document.getElementById('message').innerText = '';
+  startTimer();
 }
 
 async function requestHint() {
@@ -207,9 +408,13 @@ async function checkSolution() {
     inp.classList.toggle('incorrect', incorrect.has(key));
   }
   if (data.is_complete) {
-    msg.style.color = '#388e3c';
-    msg.innerText = 'Congratulations! You solved it!';
-  } else if (incorrect.size === 0) {
+    if (!completionHandled) {
+      handleCompletedGame();
+    }
+    return;
+  }
+
+  if (incorrect.size === 0) {
     msg.style.color = '#388e3c';
     msg.innerText = 'No incorrect entries found.';
   } else {
@@ -218,12 +423,23 @@ async function checkSolution() {
   }
 }
 
-// Wire buttons
-window.addEventListener('load', () => {
+function initializeApp() {
   const boardDiv = document.getElementById('sudoku-board');
   boardDiv.addEventListener('input', handleBoardInput);
   document.getElementById('new-game').addEventListener('click', newGame);
   document.getElementById('hint-solution').addEventListener('click', requestHint);
   document.getElementById('check-solution').addEventListener('click', checkSolution);
+  loadLeaderboard();
   newGame();
-});
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('load', initializeApp);
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    formatElapsedTime,
+    insertLeaderboardEntry,
+  };
+}
