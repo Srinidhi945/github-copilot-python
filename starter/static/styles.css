@@ -266,15 +266,36 @@ button:focus-visible {
     color: var(--text-color);
 }
 
-#leaderboard-list {
-    padding-left: 20px;
-    margin: 0;
-    color: var(--text-color);
+.leaderboard-table-wrapper {
+    width: 100%;
+    overflow-x: auto;
 }
 
-#leaderboard-list li {
-    margin-bottom: 6px;
-    color: var(--text-color);
+.leaderboard-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 320px;
+}
+
+.leaderboard-table th,
+.leaderboard-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border-color);
+    text-align: left;
+}
+
+.leaderboard-table thead th {
+    background: var(--control-bg-secondary);
+    font-weight: 700;
+}
+
+.leaderboard-table tbody tr:nth-child(even) {
+    background: color-mix(in srgb, var(--surface-bg) 80%, transparent);
+}
+
+.leaderboard-empty {
+    text-align: center;
+    color: var(--muted-color);
 }
 
 @media (max-width: 640px) {

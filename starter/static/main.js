@@ -254,21 +254,27 @@ function saveLeaderboard() {
 }
 
 function renderLeaderboard() {
-  const leaderboardList = document.getElementById('leaderboard-list');
-  if (!leaderboardList) {
+  const leaderboardBody = document.getElementById('leaderboard-body');
+  if (!leaderboardBody) {
     return;
   }
 
   if (leaderboard.length === 0) {
-    leaderboardList.innerHTML = '<li>No completed games yet.</li>';
+    leaderboardBody.innerHTML = '<tr><td colspan="5" class="leaderboard-empty">No completed games yet.</td></tr>';
     return;
   }
 
-  leaderboardList.innerHTML = '';
+  leaderboardBody.innerHTML = '';
   leaderboard.forEach((entry, index) => {
-    const listItem = document.createElement('li');
-    listItem.textContent = `${index + 1}. ${entry.name} — ${formatElapsedTime(entry.elapsedTime)} — ${entry.difficulty} — hints: ${entry.hintsUsed}`;
-    leaderboardList.appendChild(listItem);
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${index + 1}</td>
+      <td>${entry.name}</td>
+      <td>${formatElapsedTime(entry.elapsedTime)}</td>
+      <td>${entry.difficulty}</td>
+      <td>${entry.hintsUsed}</td>
+    `;
+    leaderboardBody.appendChild(row);
   });
 }
 

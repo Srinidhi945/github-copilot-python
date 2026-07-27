@@ -1,3 +1,5 @@
+const fs = require('node:fs');
+const path = require('node:path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { formatElapsedTime, insertLeaderboardEntry, requestJson } = require('../static/main.js');
@@ -94,5 +96,15 @@ test('requestJson returns a readable error for failed responses', async () => {
     assert.equal(result.error, 'Unable to start a new game.');
   } finally {
     global.fetch = originalFetch;
+  }
+});
+
+test('leaderboard template includes the required table headers', () => {
+  const templatePath = path.join(__dirname, '..', 'templates', 'index.html');
+  const template = fs.readFileSync(templatePath, 'utf8');
+
+  const requiredHeaders = ['Rank', 'Name', 'Time', 'Difficulty', 'Hints'];
+  for (const header of requiredHeaders) {
+    assert.match(template, new RegExp(`<th[^>]*>${header}</th>`));
   }
 });
