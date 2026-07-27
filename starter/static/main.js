@@ -1,6 +1,7 @@
 // Client-side rendering and interaction for the Flask-backed Sudoku
 const SIZE = 9;
 const LEADERBOARD_STORAGE_KEY = 'sudoku-top10';
+const THEME_STORAGE_KEY = 'sudoku-theme';
 let puzzle = [];
 let playerBoard = [];
 let lockedPositions = new Set();
@@ -17,6 +18,40 @@ let leaderboard = [];
 
 function getCellKey(row, col) {
   return `${row},${col}`;
+}
+
+function getBoxClass(row, col) {
+  return (Math.floor(row / 3) + Math.floor(col / 3)) % 2 === 0 ? 'box-even' : 'box-odd';
+}
+
+function applyTheme(theme) {
+  const normalizedTheme = theme === 'dark' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', normalizedTheme);
+  const themeToggle = document.getElementById('theme-toggle');
+  if (themeToggle) {
+    themeToggle.setAttribute('aria-pressed', normalizedTheme === 'dark' ? 'true' : 'false');
+    themeToggle.textContent = normalizedTheme === 'dark' ? 'Light Mode' : 'Dark Mode';
+  }
+
+  try {
+    window.localStorage.setItem(THEME_STORAGE_KEY, normalizedTheme);
+  } catch (error) {
+    // Ignore storage failures and keep the UI responsive.
+  }
+}
+
+function initializeTheme() {
+  try {
+    const savedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+    applyTheme(savedTheme === 'dark' ? 'dark' : 'light');
+  } catch (error) {
+    applyTheme('light');
+  }
+}
+
+function toggleTheme() {
+  const currentTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+  applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
 }
 
 function formatElapsedTime(seconds) {
@@ -78,6 +113,7 @@ function updateCellClasses() {
       const isInitial = initialCluePositions.has(key);
       const isHinted = hintedPositions.has(key);
       inp.className = 'sudoku-cell';
+      inp.classList.add(getBoxClass(i, j));
       if (isLocked) {
         inp.disabled = true;
       } else {
@@ -261,7 +297,7 @@ function handleCompletedGame() {
 
   const elapsedTime = getElapsedSeconds();
   const message = document.getElementById('message');
-  message.style.color = '#388e3c';
+  message.style.color = 'var(--message-success-color)';
   message.innerText = `Congratulations! You solved it in ${formatElapsedTime(elapsedTime)} with ${hintsUsed} hint${hintsUsed === 1 ? '' : 's'}.`;
 
   if (leaderboard.length < 10) {
@@ -304,7 +340,8 @@ function renderPuzzle(data) {
   playerBoard = data.puzzle.map((row) => row.slice());
   lockedPositions = new Set((data.locked_positions || []).map(([row, col]) => getCellKey(row, col)));
   initialCluePositions = new Set((data.initial_clue_positions || []).map(([row, col]) => getCellKey(row, col)));
-  hintedPositions = new Set();
+  const hintedPositionsFromPayload = (data.hinted_positions || []).map(([row, col]) => getCellKey(row, col));
+  hintedPositions = new Set(hintedPositionsFromPayload);
   hintsUsed = data.hints_used || 0;
   createBoardElement();
   const boardDiv = document.getElementById('sudoku-board');
@@ -363,7 +400,7 @@ async function requestHint() {
   const data = await res.json();
   const msg = document.getElementById('message');
   if (data.error) {
-    msg.style.color = '#d32f2f';
+    msg.style.color = 'var(--message-color)';
     msg.innerText = data.error;
     return;
   }
@@ -375,9 +412,10 @@ async function requestHint() {
     puzzle: playerBoard,
     locked_positions: Array.from(lockedPositions).map((key) => key.split(',').map(Number)),
     initial_clue_positions: Array.from(initialCluePositions).map((key) => key.split(',').map(Number)),
+    hinted_positions: Array.from(hintedPositions).map((key) => key.split(',').map(Number)),
     hints_used: hintsUsed,
   });
-  msg.style.color = '#8a6d3b';
+  msg.style.color = 'var(--cell-hinted-text)';
   msg.innerText = `Hint used. Total hints: ${hintsUsed}`;
 }
 
@@ -391,7 +429,7 @@ async function checkSolution() {
   const data = await res.json();
   const msg = document.getElementById('message');
   if (data.error) {
-    msg.style.color = '#d32f2f';
+    msg.style.color = 'var(--message-color)';
     msg.innerText = data.error;
     return;
   }
@@ -415,20 +453,22 @@ async function checkSolution() {
   }
 
   if (incorrect.size === 0) {
-    msg.style.color = '#388e3c';
+    msg.style.color = 'var(--message-success-color)';
     msg.innerText = 'No incorrect entries found.';
   } else {
-    msg.style.color = '#d32f2f';
+    msg.style.color = 'var(--message-color)';
     msg.innerText = 'Some cells are incorrect.';
   }
 }
 
 function initializeApp() {
   const boardDiv = document.getElementById('sudoku-board');
+  initializeTheme();
   boardDiv.addEventListener('input', handleBoardInput);
   document.getElementById('new-game').addEventListener('click', newGame);
   document.getElementById('hint-solution').addEventListener('click', requestHint);
   document.getElementById('check-solution').addEventListener('click', checkSolution);
+  document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
   loadLeaderboard();
   newGame();
 }
