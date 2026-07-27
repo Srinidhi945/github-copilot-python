@@ -1,6 +1,10 @@
 import sudoku_logic
 
 
+def count_clues(board):
+    return sum(1 for row in board for value in row if value != sudoku_logic.EMPTY)
+
+
 def test_create_empty_board_returns_9x9_grid():
     board = sudoku_logic.create_empty_board()
 
@@ -54,3 +58,21 @@ def test_generate_puzzle_produces_uniquely_solvable_puzzle():
     puzzle, _ = sudoku_logic.generate_puzzle(clues=35)
 
     assert sudoku_logic.count_solutions(puzzle, limit=2) == 1
+
+
+def test_difficulty_mapping_uses_expected_target_clues():
+    assert sudoku_logic.resolve_clues(difficulty='easy') == 40
+    assert sudoku_logic.resolve_clues(difficulty='medium') == 32
+    assert sudoku_logic.resolve_clues(difficulty='hard') == 28
+
+
+def test_generate_puzzle_respects_difficulty_by_leaving_fewer_clues_for_harder_levels():
+    easy_puzzle, _ = sudoku_logic.generate_puzzle(difficulty='easy')
+    medium_puzzle, _ = sudoku_logic.generate_puzzle(difficulty='medium')
+    hard_puzzle, _ = sudoku_logic.generate_puzzle(difficulty='hard')
+
+    easy_clues = count_clues(easy_puzzle)
+    medium_clues = count_clues(medium_puzzle)
+    hard_clues = count_clues(hard_puzzle)
+
+    assert easy_clues > medium_clues > hard_clues

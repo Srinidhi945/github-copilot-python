@@ -57,3 +57,19 @@ def test_check_route_without_active_game_returns_error(client):
 
     assert response.status_code == 400
     assert response.get_json()['error'] == 'No game in progress'
+
+
+def test_new_game_accepts_named_difficulty(client):
+    response = client.get('/new?difficulty=hard')
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert isinstance(payload['puzzle'], list)
+    assert len(payload['puzzle']) == 9
+
+
+def test_new_game_rejects_invalid_difficulty(client):
+    response = client.get('/new?difficulty=insane')
+
+    assert response.status_code == 400
+    assert response.get_json()['error'] == 'Invalid difficulty. Expected one of: easy, medium, hard'
